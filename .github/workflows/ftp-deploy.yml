@@ -92,10 +92,28 @@ jobs:
       # Read-only sanity check: confirm the live root actually serves the
       # static homepage now, from a runner with normal internet access
       # (this doesn't touch the server, just fetches what a visitor gets).
+      # Also probes whether the server-side LiteSpeed page cache (seen
+      # returning "x-litespeed-cache: hit" with stale WordPress content)
+      # is the blocker, by trying a cache-busting query and a purge header.
       - name: Verify homepage
         run: |
           sleep 3
-          echo "--- HTTP response headers ---"
-          curl -sS -D - -o page.html "https://visda.keerthanasv.com/" --max-time 20 || true
-          echo "--- first 30 lines of body ---"
-          head -30 page.html || true
+          echo "=== 1) plain request to / ==="
+          curl -sS -D page1_headers.txt -o page1.html "https://visda.keerthanasv.com/" --max-time 20 || true
+          cat page1_headers.txt || true
+          echo "--- first 15 lines of body ---"
+          head -15 page1.html || true
+
+          echo
+          echo "=== 2) cache-busting query string ==="
+          curl -sS -D - -o page2.html "https://visda.keerthanasv.com/?nocache=$(date +%s)" --max-time 20 || true
+          echo "--- first 15 lines of body ---"
+          head -15 page2.html || true
+
+          echo
+          echo "=== 3) attempt LiteSpeed purge header, then re-check / ==="
+          curl -sS -o /dev/null -H "X-LiteSpeed-Purge: /" "https://visda.keerthanasv.com/" --max-time 20 || true
+          sleep 2
+          curl -sS -D - -o page3.html "https://visda.keerthanasv.com/" --max-time 20 || true
+          echo "--- first 15 lines of body ---"
+          head -15 page3.html || true

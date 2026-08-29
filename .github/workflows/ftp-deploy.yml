@@ -14,6 +14,23 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # The action tracks what it last uploaded in a state file on the server.
+      # That record went stale: it still lists the removed yoga pages, and
+      # while missing *files* are skipped, a missing *folder* raises a hard
+      # 550 that aborts the run before the state file can be rewritten -- so
+      # every run repeated the same doomed delete. Clearing the record makes
+      # the next deploy re-upload from scratch and write a correct one.
+      - name: Reset stale deploy state
+        env:
+          FTP_HOST: 217.21.91.80
+          FTP_USER: u471136946.visda.keerthanasv.com
+          FTP_PASS: ${{ secrets.FTP_PASSWORD }}
+        run: |
+          curl -sS --user "$FTP_USER:$FTP_PASS" \
+            -Q "-DELE /public_html/.ftp-deploy-sync-state.json" \
+            "ftp://$FTP_HOST/public_html/" -o /dev/null || true
+          echo "Stale deploy state cleared (ignored if it was already absent)."
+
       # Uploads only the static site files below into public_html/.
       # The exclude list protects the existing WordPress install: nothing
       # under wp-admin/wp-content/wp-includes, and none of the WP root
@@ -117,32 +134,21 @@ jobs:
           head -15 page1.html || true
 
           echo
-          echo "=== 2) static pages at the top level ==="
-          for p in / /about.html /classes.html /pricing.html /class/hot-yoga.html; do
+          echo "=== 2) hospital pages at the top level (cache-busted) ==="
+          for p in / /about.html /services.html /robotic-knee-replacement.html /doctors.html /contact.html; do
             code=$(curl -sS -o body.html -w "%{http_code}" "https://visda.keerthanasv.com$p?cb=$(date +%s)" --max-time 20 || echo "ERR")
             echo -n "$p -> HTTP $code  "
             grep -o "<title>[^<]*</title>" body.html | head -1 || echo "(no title)"
           done
 
           echo
-          echo "=== 3) WordPress routes must still work ==="
+          echo "=== 3) the CSS must load, or pages render unstyled ==="
+          curl -sS -o /dev/null -w "assets/css/style.css -> HTTP %{http_code}\n" \
+            "https://visda.keerthanasv.com/assets/css/style.css" --max-time 20 || true
+
+          echo
+          echo "=== 4) WordPress routes must still work ==="
           for p in /wp-login.php /wp-admin/; do
             code=$(curl -sS -o /dev/null -w "%{http_code}" "https://visda.keerthanasv.com$p" --max-time 20 || echo "ERR")
             echo "$p -> HTTP $code"
-          done
-
-      # Map the FTP tree so we can tell WHICH directory actually serves this
-      # subdomain. On Hostinger a subdomain usually has its own docroot (e.g.
-      # domains/<subdomain>/public_html), so files put in the account's top
-      # public_html may never be served.
-      - name: Map FTP directory layout
-        env:
-          FTP_HOST: 217.21.91.80
-          FTP_USER: u471136946.visda.keerthanasv.com
-          FTP_PASS: ${{ secrets.FTP_PASSWORD }}
-        run: |
-          for d in / /public_html/ /domains/ /domains/visda.keerthanasv.com/ /domains/visda.keerthanasv.com/public_html/; do
-            echo "=== listing $d ==="
-            curl -sS --user "$FTP_USER:$FTP_PASS" "ftp://$FTP_HOST$d" --max-time 25 || echo "(could not list $d)"
-            echo
           done

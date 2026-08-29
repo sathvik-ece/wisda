@@ -1,0 +1,43 @@
+name: Deploy site via FTP
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "website-31b44a6c-99ca-4509-be31-d200a4dc7bcd/**"
+  workflow_dispatch: {}
+
+jobs:
+  ftp-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Uploads only the static site files below into public_html/.
+      # The exclude list protects the existing WordPress install: nothing
+      # under wp-admin/wp-content/wp-includes, and none of the WP root
+      # files, is ever touched or deleted by this workflow.
+      - name: FTP Deploy
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: 217.21.91.80
+          username: u471136946.visda.keerthanasv.com
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftp
+          port: 21
+          local-dir: ./website-31b44a6c-99ca-4509-be31-d200a4dc7bcd/
+          server-dir: ./public_html/
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/wp-admin/**
+            **/wp-content/**
+            **/wp-includes/**
+            **/wp-config.php
+            **/.htaccess
+            **/wp-login.php
+            **/wp-cron.php
+            **/xmlrpc.php
+            **/license.txt
+            **/readme.html

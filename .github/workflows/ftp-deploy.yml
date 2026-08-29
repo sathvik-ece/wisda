@@ -43,10 +43,13 @@ jobs:
             **/readme.html
 
       # WordPress leaves .htaccess untouched by the step above (it's excluded
-      # so WP's own rewrite rules survive). Apache's default DirectoryIndex
-      # order tries index.php before index.html, so the site root would still
-      # load WordPress. This prepends a DirectoryIndex override that makes
-      # index.html win at the root, without deleting anything WordPress added.
+      # so WP's own rewrite rules survive). A DirectoryIndex override alone
+      # can be silently ignored if the host's AllowOverride doesn't grant the
+      # "Indexes" category, even though WP's own RewriteRules (FileInfo
+      # category) still work. So force the root to index.html with a
+      # mod_rewrite rule instead -- the same mechanism WordPress's own block
+      # relies on -- placed before WordPress's catch-all so it wins only for
+      # the exact "/" request and never touches any other URL.
       - name: Prioritize static index.html at the site root
         env:
           FTP_HOST: 217.21.91.80
@@ -56,9 +59,32 @@ jobs:
           set -e
           curl -s --user "$FTP_USER:$FTP_PASS" "ftp://$FTP_HOST/public_html/.htaccess" -o current.htaccess || true
           touch current.htaccess
-          if grep -q "^DirectoryIndex" current.htaccess; then
-            sed 's/^DirectoryIndex.*/DirectoryIndex index.html index.php/' current.htaccess > new.htaccess
-          else
-            { echo "DirectoryIndex index.html index.php"; echo; cat current.htaccess; } > new.htaccess
-          fi
+          echo "--- current .htaccess on server ---"
+          cat current.htaccess
+          echo "--- end current .htaccess ---"
+
+          START="# BEGIN static-homepage-override"
+          END="# END static-homepage-override"
+
+          # Drop any block we added on a previous run so re-runs stay idempotent.
+          awk -v s="$START" -v e="$END" '
+            $0==s {skip=1}
+            !skip {print}
+            $0==e {skip=0}
+          ' current.htaccess > stripped.htaccess
+
+          {
+            echo "$START"
+            echo "RewriteEngine On"
+            echo "RewriteBase /"
+            echo "RewriteRule ^\$ index.html [L]"
+            echo "$END"
+            echo
+            cat stripped.htaccess
+          } > new.htaccess
+
+          echo "--- new .htaccess to upload ---"
+          cat new.htaccess
+          echo "--- end new .htaccess ---"
+
           curl -s --user "$FTP_USER:$FTP_PASS" -T new.htaccess "ftp://$FTP_HOST/public_html/.htaccess"

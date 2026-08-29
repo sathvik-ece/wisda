@@ -42,52 +42,64 @@ jobs:
             **/license.txt
             **/readme.html
 
-      # WordPress leaves .htaccess untouched by the step above (it's excluded
-      # so WP's own rewrite rules survive). A DirectoryIndex override alone
-      # can be silently ignored if the host's AllowOverride doesn't grant the
-      # "Indexes" category, even though WP's own RewriteRules (FileInfo
-      # category) still work. So force the root to index.html with a
-      # mod_rewrite rule instead -- the same mechanism WordPress's own block
-      # relies on -- placed before WordPress's catch-all so it wins only for
-      # the exact "/" request and never touches any other URL.
-      - name: Prioritize static index.html at the site root
+      # The FTP root "/" is this subdomain's actual document root (it holds
+      # wp-config.php, wp-admin, index.php...), so public_html is just a
+      # subfolder inside it and the uploaded pages are only reachable under
+      # /public_html/*. Serve them at the top level by rewriting in the ROOT
+      # .htaccess. The rewrite fires only when the requested file really
+      # exists inside public_html, so every WordPress route (wp-admin,
+      # wp-login.php, permalinks, wp-json) falls through untouched.
+      - name: Serve the static site at the document root
         env:
           FTP_HOST: 217.21.91.80
           FTP_USER: u471136946.visda.keerthanasv.com
           FTP_PASS: ${{ secrets.FTP_PASSWORD }}
         run: |
           set -e
-          curl -s --user "$FTP_USER:$FTP_PASS" "ftp://$FTP_HOST/public_html/.htaccess" -o current.htaccess || true
-          touch current.htaccess
-          echo "--- current .htaccess on server ---"
-          cat current.htaccess
-          echo "--- end current .htaccess ---"
+          curl -s --user "$FTP_USER:$FTP_PASS" "ftp://$FTP_HOST/.htaccess" -o root.htaccess || true
+          touch root.htaccess
+          echo "--- current ROOT .htaccess (WordPress) ---"
+          cat root.htaccess
+          echo "--- end ---"
 
-          START="# BEGIN static-homepage-override"
-          END="# END static-homepage-override"
+          # Keep a dated backup on the server before touching WordPress's file.
+          curl -s --user "$FTP_USER:$FTP_PASS" -T root.htaccess \
+            "ftp://$FTP_HOST/.htaccess.before-static-$(date +%Y%m%d-%H%M%S)"
 
-          # Drop any block we added on a previous run so re-runs stay idempotent.
+          START="# BEGIN static-site-root"
+          END="# END static-site-root"
+
           awk -v s="$START" -v e="$END" '
             $0==s {skip=1}
             !skip {print}
             $0==e {skip=0}
-          ' current.htaccess > stripped.htaccess
+          ' root.htaccess > stripped.htaccess
 
           {
             echo "$START"
+            echo "<IfModule mod_rewrite.c>"
             echo "RewriteEngine On"
             echo "RewriteBase /"
-            echo "RewriteRule ^\$ index.html [L]"
+            echo "RewriteRule ^\$ public_html/index.html [L]"
+            echo "RewriteCond %{REQUEST_URI} !^/public_html/"
+            echo "RewriteCond %{DOCUMENT_ROOT}/public_html%{REQUEST_URI} -f"
+            echo "RewriteRule ^(.*)\$ public_html/\$1 [L]"
+            echo "</IfModule>"
             echo "$END"
             echo
             cat stripped.htaccess
-          } > new.htaccess
+          } > new_root.htaccess
 
-          echo "--- new .htaccess to upload ---"
-          cat new.htaccess
-          echo "--- end new .htaccess ---"
+          echo "--- new ROOT .htaccess ---"
+          cat new_root.htaccess
+          echo "--- end ---"
 
-          curl -s --user "$FTP_USER:$FTP_PASS" -T new.htaccess "ftp://$FTP_HOST/public_html/.htaccess"
+          curl -s --user "$FTP_USER:$FTP_PASS" -T new_root.htaccess "ftp://$FTP_HOST/.htaccess"
+
+          # Neutralise the earlier rule we put inside public_html so it can't
+          # interfere now that rewriting happens at the document root.
+          printf 'DirectoryIndex index.html index.php\n' > inner.htaccess
+          curl -s --user "$FTP_USER:$FTP_PASS" -T inner.htaccess "ftp://$FTP_HOST/public_html/.htaccess"
 
       # Read-only sanity check: confirm the live root actually serves the
       # static homepage now, from a runner with normal internet access
@@ -105,17 +117,18 @@ jobs:
           head -15 page1.html || true
 
           echo
-          echo "=== 2) cache-busting query string ==="
-          curl -sS -D - -o page2.html "https://visda.keerthanasv.com/?nocache=$(date +%s)" --max-time 20 || true
-          echo "--- first 15 lines of body ---"
-          head -15 page2.html || true
+          echo "=== 2) static pages at the top level ==="
+          for p in / /about.html /classes.html /pricing.html /class/hot-yoga.html; do
+            code=$(curl -sS -o body.html -w "%{http_code}" "https://visda.keerthanasv.com$p?cb=$(date +%s)" --max-time 20 || echo "ERR")
+            echo -n "$p -> HTTP $code  "
+            grep -o "<title>[^<]*</title>" body.html | head -1 || echo "(no title)"
+          done
 
           echo
-          echo "=== 3) are our uploaded files reachable at all? ==="
-          for p in /index.html /about.html /classes.html; do
-            code=$(curl -sS -o body.html -w "%{http_code}" "https://visda.keerthanasv.com$p" --max-time 20 || echo "ERR")
+          echo "=== 3) WordPress routes must still work ==="
+          for p in /wp-login.php /wp-admin/; do
+            code=$(curl -sS -o /dev/null -w "%{http_code}" "https://visda.keerthanasv.com$p" --max-time 20 || echo "ERR")
             echo "$p -> HTTP $code"
-            grep -o "<title>[^<]*</title>" body.html | head -1 || true
           done
 
       # Map the FTP tree so we can tell WHICH directory actually serves this

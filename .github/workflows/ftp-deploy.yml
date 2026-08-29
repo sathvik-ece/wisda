@@ -111,9 +111,25 @@ jobs:
           head -15 page2.html || true
 
           echo
-          echo "=== 3) attempt LiteSpeed purge header, then re-check / ==="
-          curl -sS -o /dev/null -H "X-LiteSpeed-Purge: /" "https://visda.keerthanasv.com/" --max-time 20 || true
-          sleep 2
-          curl -sS -D - -o page3.html "https://visda.keerthanasv.com/" --max-time 20 || true
-          echo "--- first 15 lines of body ---"
-          head -15 page3.html || true
+          echo "=== 3) are our uploaded files reachable at all? ==="
+          for p in /index.html /about.html /classes.html; do
+            code=$(curl -sS -o body.html -w "%{http_code}" "https://visda.keerthanasv.com$p" --max-time 20 || echo "ERR")
+            echo "$p -> HTTP $code"
+            grep -o "<title>[^<]*</title>" body.html | head -1 || true
+          done
+
+      # Map the FTP tree so we can tell WHICH directory actually serves this
+      # subdomain. On Hostinger a subdomain usually has its own docroot (e.g.
+      # domains/<subdomain>/public_html), so files put in the account's top
+      # public_html may never be served.
+      - name: Map FTP directory layout
+        env:
+          FTP_HOST: 217.21.91.80
+          FTP_USER: u471136946.visda.keerthanasv.com
+          FTP_PASS: ${{ secrets.FTP_PASSWORD }}
+        run: |
+          for d in / /public_html/ /domains/ /domains/visda.keerthanasv.com/ /domains/visda.keerthanasv.com/public_html/; do
+            echo "=== listing $d ==="
+            curl -sS --user "$FTP_USER:$FTP_PASS" "ftp://$FTP_HOST$d" --max-time 25 || echo "(could not list $d)"
+            echo
+          done

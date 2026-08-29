@@ -41,3 +41,24 @@ jobs:
             **/xmlrpc.php
             **/license.txt
             **/readme.html
+
+      # WordPress leaves .htaccess untouched by the step above (it's excluded
+      # so WP's own rewrite rules survive). Apache's default DirectoryIndex
+      # order tries index.php before index.html, so the site root would still
+      # load WordPress. This prepends a DirectoryIndex override that makes
+      # index.html win at the root, without deleting anything WordPress added.
+      - name: Prioritize static index.html at the site root
+        env:
+          FTP_HOST: 217.21.91.80
+          FTP_USER: u471136946.visda.keerthanasv.com
+          FTP_PASS: ${{ secrets.FTP_PASSWORD }}
+        run: |
+          set -e
+          curl -s --user "$FTP_USER:$FTP_PASS" "ftp://$FTP_HOST/public_html/.htaccess" -o current.htaccess || true
+          touch current.htaccess
+          if grep -q "^DirectoryIndex" current.htaccess; then
+            sed 's/^DirectoryIndex.*/DirectoryIndex index.html index.php/' current.htaccess > new.htaccess
+          else
+            { echo "DirectoryIndex index.html index.php"; echo; cat current.htaccess; } > new.htaccess
+          fi
+          curl -s --user "$FTP_USER:$FTP_PASS" -T new.htaccess "ftp://$FTP_HOST/public_html/.htaccess"

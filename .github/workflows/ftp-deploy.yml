@@ -88,3 +88,14 @@ jobs:
           echo "--- end new .htaccess ---"
 
           curl -s --user "$FTP_USER:$FTP_PASS" -T new.htaccess "ftp://$FTP_HOST/public_html/.htaccess"
+
+      # Read-only sanity check: confirm the live root actually serves the
+      # static homepage now, from a runner with normal internet access
+      # (this doesn't touch the server, just fetches what a visitor gets).
+      - name: Verify homepage
+        run: |
+          sleep 3
+          echo "--- HTTP response headers ---"
+          curl -sS -D - -o page.html "https://visda.keerthanasv.com/" --max-time 20 || true
+          echo "--- first 30 lines of body ---"
+          head -30 page.html || true

@@ -154,9 +154,14 @@ jobs:
           echo
           echo "=== 2) hospital pages at the top level (cache-busted) ==="
           for p in / /about.html /services.html /robotic-knee-replacement.html /doctors.html /contact.html; do
-            code=$(curl -sS -o body.html -w "%{http_code}" "https://visda.keerthanasv.com$p?cb=$(date +%s)" --max-time 20 || echo "ERR")
+            code=$(curl -sS -D body_headers.txt -o body.html -w "%{http_code}" "https://visda.keerthanasv.com$p?cb=$(date +%s)" --max-time 20 || echo "ERR")
             echo -n "$p -> HTTP $code  "
             grep -o "<title>[^<]*</title>" body.html | head -1 || echo "(no title)"
+            if [ "$p" = "/" ]; then
+              echo "  cache headers: $(grep -i '^x-litespeed-cache\|^age:' body_headers.txt | tr '\n' ' ')"
+              echo -n "  hero image in fetched HTML: "
+              grep -o 'src="images/[^"]*"' body.html | head -3 || echo "NOT FOUND"
+            fi
           done
 
           echo

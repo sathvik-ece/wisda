@@ -37,7 +37,7 @@ jobs:
           FTP_PASS: ${{ secrets.FTP_PASSWORD }}
         run: |
           ftp_quote() {
-            curl -sS --user "$FTP_USER:$FTP_PASS" -Q "$1" "ftp://$FTP_HOST/public_html/" -o /dev/null 2>&1 || true
+            curl -sS --max-time 15 --user "$FTP_USER:$FTP_PASS" -Q "$1" "ftp://$FTP_HOST/public_html/" -o /dev/null 2>&1 || true
           }
           ftp_quote "MKD /public_html/class"
           echo "Ensured /public_html/class exists so its queued delete can succeed."

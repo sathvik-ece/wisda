@@ -33,6 +33,7 @@
       <li><a href="robotic-knee-replacement.html">Robotic Surgery</a></li>
       <li><a href="doctors.html">Our Doctors</a></li>
       <li><a href="videos.html">Videos</a></li>
+      <li><a href="gallery.html">Gallery</a></li>
       <li><a href="contact.html">Contact</a></li>
     </ul>
     <a class="btn btn-primary nav-cta" href="contact.html">Book Appointment</a>
@@ -51,14 +52,23 @@
         <a class="btn btn-ghost" href="robotic-knee-replacement.html">Learn About Robotic Surgery</a>
       </div>
     </div>
-    <div class="hero-card">
-      <h3>Why patients choose VISDA</h3>
-      <ul>
-        <li>Robotic-assisted precision planning</li>
-        <li>Smaller incisions, less blood loss</li>
-        <li>Walk within hours of surgery</li>
-        <li>Dedicated physiotherapy support</li>
-      </ul>
+    <!--
+      HERO PHOTO/VIDEO — this is the first thing a visitor sees. It currently
+      plays a real procedure-explainer video so the front page is not just a
+      placeholder. To use an actual photo or clip of Dr. Premkumar instead,
+      replace the whole <div class="video-frame">...</div> block with either:
+        <img src="assets/img/dr-premkumar.jpg" alt="Dr. Premkumar V" style="width:100%;height:100%;object-fit:cover">
+      or a video file:
+        <video src="assets/video/dr-premkumar-intro.mp4" autoplay muted loop playsinline style="width:100%;height:100%;object-fit:cover"></video>
+    -->
+    <div class="hero-media">
+      <div class="video-frame">
+        <iframe src="https://www.youtube.com/embed/Waw766n3_lc?rel=0" title="Dr. Premkumar V explains knee replacement surgery" loading="lazy" allowfullscreen allow="accelerometer; encrypted-media; picture-in-picture"></iframe>
+      </div>
+      <div class="hero-media-caption">
+        <b>Dr. Premkumar V</b>
+        <span>Orthopaedic Surgeon, M.S. Ortho [AIIMS] &middot; explains robotic knee replacement</span>
+      </div>
     </div>
   </div>
 </section>
@@ -359,6 +369,11 @@
     </div>
   </div>
 </footer>
+
+<div class="mobile-callbar">
+  <a href="tel:+919495420145">&#9742; Call Now</a>
+  <a href="contact.html">Book Appointment</a>
+</div>
 
 <script src="assets/js/main.js"></script>
 </body>

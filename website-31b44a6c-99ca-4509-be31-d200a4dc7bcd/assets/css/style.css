@@ -106,6 +106,7 @@ header{background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0
 .card h3{margin-bottom:.4em}
 .card p:last-child{margin-bottom:0}
 .card .ic{width:52px;height:52px;border-radius:13px;background:linear-gradient(135deg,var(--navy),var(--teal));color:#fff;display:grid;place-items:center;font-size:1.4rem;margin-bottom:16px}
+.card-icon{width:100%;max-width:100px;height:auto;margin-bottom:16px;border-radius:13px}
 .card-link{font-weight:700;font-size:.9rem;color:var(--blue)}
 
 /* split */

@@ -170,6 +170,11 @@ jobs:
             "https://visda.keerthanasv.com/assets/css/style.css" --max-time 20 || true
 
           echo
+          echo "=== 3b) the hero photo must load, or it renders as a blank box ==="
+          curl -sS -o /dev/null -w "images/dr-premkumar-v.png -> HTTP %{http_code}, %{size_download} bytes, %{content_type}\n" \
+            "https://visda.keerthanasv.com/images/dr-premkumar-v.png" --max-time 20 || true
+
+          echo
           echo "=== 4) WordPress routes must still work ==="
           for p in /wp-login.php /wp-admin/; do
             code=$(curl -sS -o /dev/null -w "%{http_code}" "https://visda.keerthanasv.com$p" --max-time 20 || echo "ERR")

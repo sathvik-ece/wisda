@@ -21,33 +21,33 @@ jobs:
       # the empty folder lets that delete succeed once; the state is then
       # rewritten without it and this step becomes a no-op.
       #
-      # The action also fails to delete a folder that still has files inside
-      # it: it issues a single RMD on the folder without first clearing its
-      # contents, which this server answers with 550 for a non-empty
-      # directory. When the hospital site's assets/ folder was removed from
-      # the repo, its nested files (assets/css/style.css, assets/js/main.js)
-      # were never individually deleted, so the RMD on assets/ kept failing.
-      # Clear known leftover files/subfolders here so any such RMD lands on
-      # an already-empty directory. Safe to keep even after this succeeds
-      # once -- deleting an already-gone file/folder is a harmless no-op.
+      # The action also hard-aborts deleting the removed assets/ folder for
+      # the same reason. curl's -Q commands abort the whole batch on the
+      # first failure, so chaining several in one call (as first tried here)
+      # meant later commands never ran once an earlier one 404'd -- run each
+      # independently with its own `|| true` instead. Order matters: ensure
+      # the leaf folders exist before deleting files inside them, and delete
+      # files before removing their parent folder, so every step lands on a
+      # well-defined state regardless of what an earlier failed run left
+      # behind.
       - name: Unblock pending folder delete
         env:
           FTP_HOST: 217.21.91.80
           FTP_USER: u471136946.visda.keerthanasv.com
           FTP_PASS: ${{ secrets.FTP_PASSWORD }}
         run: |
-          curl -sS --user "$FTP_USER:$FTP_PASS" \
-            -Q "MKD /public_html/class" \
-            "ftp://$FTP_HOST/public_html/" -o /dev/null 2>&1 || true
-          echo "Ensured /public_html/class exists so the queued delete can succeed."
+          ftp_quote() {
+            curl -sS --user "$FTP_USER:$FTP_PASS" -Q "$1" "ftp://$FTP_HOST/public_html/" -o /dev/null 2>&1 || true
+          }
+          ftp_quote "MKD /public_html/class"
+          echo "Ensured /public_html/class exists so its queued delete can succeed."
 
-          curl -sS --user "$FTP_USER:$FTP_PASS" \
-            -Q "DELE /public_html/assets/css/style.css" \
-            -Q "RMD /public_html/assets/css" \
-            -Q "DELE /public_html/assets/js/main.js" \
-            -Q "RMD /public_html/assets/js" \
-            "ftp://$FTP_HOST/public_html/" -o /dev/null 2>&1 || true
-          echo "Cleared any leftover contents of /public_html/assets so its folder delete can succeed."
+          ftp_quote "MKD /public_html/assets"
+          ftp_quote "MKD /public_html/assets/css"
+          ftp_quote "DELE /public_html/assets/css/style.css"
+          ftp_quote "MKD /public_html/assets/js"
+          ftp_quote "DELE /public_html/assets/js/main.js"
+          echo "Ensured /public_html/assets/{css,js} exist and are empty so their folder deletes can succeed."
 
       # Uploads only the static site files below into public_html/.
       # The exclude list protects the existing WordPress install: nothing

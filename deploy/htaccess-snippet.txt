@@ -1,0 +1,22 @@
+# =========================================================
+# VISDA static homepage routing — ADD ONLY, DO NOT REPLACE
+# =========================================================
+# Paste this block AT THE VERY TOP of the existing .htaccess
+# in the WordPress root, ABOVE the "# BEGIN WordPress" block.
+# Do not touch anything below "# BEGIN WordPress" — leave the
+# WordPress block exactly as WordPress generated it.
+#
+# What this does:
+#   - Only the exact site root ("/") is rewritten to /index.html.
+#   - Every other request (/wp-admin/, /wp-login.php, /wp-json/*,
+#     /wp-admin/admin-ajax.php, permalinks, /about.html, /services.html,
+#     etc.) is left completely untouched and falls through to the
+#     normal Apache file lookup / WordPress rewrite block below.
+#   - [L] means "stop here" — WordPress's rules never even run for "/".
+# =========================================================
+RewriteEngine On
+RewriteBase /
+RewriteRule ^$ /index.html [L]
+
+# ---- everything below this line is your EXISTING .htaccess ----
+# ---- (starts with "# BEGIN WordPress" or similar) — leave as-is ----
